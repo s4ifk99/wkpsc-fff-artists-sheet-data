@@ -1,0 +1,34 @@
+name: Fetch FFF artist CSV
+on:
+  push:
+    paths:
+      - '.github/workflows/fetch-csv.yml'
+  workflow_dispatch:
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download full catalogue CSV
+        run: |
+          set -euo pipefail
+          curl -fsSL -o full_href_nonotes.csv "https://refine-sat-stored-rats.trycloudflare.com/full_href_nonotes.csv"
+          wc -c full_href_nonotes.csv
+          head -n 2 full_href_nonotes.csv
+          # also notes version if present
+          curl -fsSL -o full_with_notes_href.csv "https://refine-sat-stored-rats.trycloudflare.com/full_with_notes_href.csv" || true
+          curl -fsSL -o sheet_upload.csv "https://refine-sat-stored-rats.trycloudflare.com/sheet_upload.csv" || true
+      - name: Commit if changed
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add full_href_nonotes.csv full_with_notes_href.csv sheet_upload.csv || true
+          if git diff --cached --quiet; then
+            echo "No changes"
+          else
+            git commit -m "Import full Flyers for Falastin artist catalogue CSV"
+            git push
+          fi
