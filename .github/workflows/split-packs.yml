@@ -1,0 +1,41 @@
+name: Split packs40
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/split-packs.yml'
+jobs:
+  split:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Split into packs of 40
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+          text=Path('full_with_notes_href.csv').read_text(encoding='utf-8')
+          lines=text.splitlines()
+          header,data=lines[0],lines[1:]
+          out=Path('packs40'); out.mkdir(exist_ok=True)
+          ps=40
+          for i in range(0,len(data),ps):
+              chunk=data[i:i+ps]
+              new=[]
+              for j,row in enumerate(chunk):
+                  local=j+2
+                  row2=re.sub(r'=IMAGE\([A-Z]+\d+\)', f'=IMAGE(H{local})', row, count=1)
+                  new.append(row2)
+              n=i//ps
+              (out/f'pack_{n:02d}.csv').write_text(header+'\n'+'\n'.join(new)+'\n',encoding='utf-8')
+          print('packs', (i//ps)+1 if data else 0, 'rows', len(data))
+          PY
+      - name: Commit packs
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add packs40
+          git diff --cached --quiet || (git commit -m "Add packs40 split of full catalogue" && git push)
